@@ -2,7 +2,8 @@ FROM php:8.3-apache
 
 WORKDIR /var/www/html
 
-RUN a2enmod rewrite headers expires
+RUN a2dismod mpm_event mpm_worker 2>/dev/null || true \
+    && a2enmod mpm_prefork rewrite headers expires
 
 COPY render-php.ini /usr/local/etc/php/conf.d/render.ini
 COPY . /var/www/html

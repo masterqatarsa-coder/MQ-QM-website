@@ -50,7 +50,9 @@ function app_path(string $relative = ''): string
 
 function storage_path(string $relative = ''): string
 {
-    $configuredPath = sanitize_text(env_value('APP_DATA_DIR', '') ?? '');
+    $configuredPath = sanitize_text(
+        env_value('APP_DATA_DIR', env_value('RAILWAY_VOLUME_MOUNT_PATH', '') ?? '') ?? ''
+    );
 
     if ($configuredPath === '') {
         $base = app_path('data');
