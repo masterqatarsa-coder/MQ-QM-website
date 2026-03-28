@@ -3918,13 +3918,76 @@
             "referrer": "localhost/clients",
             "ipHash": "a8ae5349d846d2ffd1d2",
             "createdAt": "2026-03-28 07:55:14"
+        },
+        {
+            "id": 109,
+            "eventType": "page_view",
+            "page": "/clients",
+            "label": null,
+            "metadata": {
+                "compact": false,
+                "browser": "Chrome",
+                "deviceType": "Desktop",
+                "referrer": "localhost/clients",
+                "visitorAlias": "Visitor 57E346"
+            },
+            "visitorId": "57e346fc95fe2c637a5183487f3f69e6",
+            "visitorAlias": "Visitor 57E346",
+            "sessionHash": "b2affac5805ee2ee44d8",
+            "browser": "Chrome",
+            "deviceType": "Desktop",
+            "referrer": "localhost/clients",
+            "ipHash": "a8ae5349d846d2ffd1d2",
+            "createdAt": "2026-03-28 08:14:02"
+        },
+        {
+            "id": 110,
+            "eventType": "page_view",
+            "page": "/clients",
+            "label": null,
+            "metadata": {
+                "compact": true,
+                "browser": "Chrome",
+                "deviceType": "Desktop",
+                "referrer": "localhost/clients",
+                "visitorAlias": "Visitor 57E346"
+            },
+            "visitorId": "57e346fc95fe2c637a5183487f3f69e6",
+            "visitorAlias": "Visitor 57E346",
+            "sessionHash": "b2affac5805ee2ee44d8",
+            "browser": "Chrome",
+            "deviceType": "Desktop",
+            "referrer": "localhost/clients",
+            "ipHash": "a8ae5349d846d2ffd1d2",
+            "createdAt": "2026-03-28 08:14:03"
+        },
+        {
+            "id": 111,
+            "eventType": "page_view",
+            "page": "/",
+            "label": null,
+            "metadata": {
+                "compact": true,
+                "browser": "Chrome",
+                "deviceType": "Desktop",
+                "referrer": "localhost/",
+                "visitorAlias": "Visitor 57E346"
+            },
+            "visitorId": "57e346fc95fe2c637a5183487f3f69e6",
+            "visitorAlias": "Visitor 57E346",
+            "sessionHash": "b2affac5805ee2ee44d8",
+            "browser": "Chrome",
+            "deviceType": "Desktop",
+            "referrer": "localhost/",
+            "ipHash": "a8ae5349d846d2ffd1d2",
+            "createdAt": "2026-03-28 08:14:21"
         }
     ],
     "security": {
         "rateLimits": {
             "d4cdc123e5d96176ac8f": {
                 "bucket": "public_tracking",
-                "count": 3,
+                "count": 6,
                 "windowStartedAt": 1774684511,
                 "blockedUntil": 0
             },
@@ -5565,7 +5628,7 @@
                 "locationHint": null,
                 "requestFingerprint": "cfeb17b6dffcd5e8a211",
                 "loginAt": "2026-03-28 06:35:45",
-                "lastSeenAt": "2026-03-28 08:12:30",
+                "lastSeenAt": "2026-03-28 08:24:31",
                 "endedAt": null,
                 "status": "active",
                 "endedReason": null
