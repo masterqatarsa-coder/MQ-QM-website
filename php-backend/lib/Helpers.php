@@ -81,7 +81,7 @@ function configured_allowed_origins(): array
     }
 
     $origins = array_values(array_filter(array_map(
-        static fn(string $origin): string => trim($origin),
+        static fn(string $origin): string => rtrim(trim($origin), '/'),
         explode(',', $configured)
     ), static fn(string $origin): bool => $origin !== ''));
 
@@ -168,7 +168,7 @@ function set_api_headers(): void
         header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
     }
 
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $origin = rtrim((string)($_SERVER['HTTP_ORIGIN'] ?? ''), '/');
     $allowedOrigins = configured_allowed_origins();
 
     if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {

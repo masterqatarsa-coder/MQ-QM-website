@@ -309,8 +309,9 @@ export function isHiddenAdminAccessError(error: unknown): boolean {
   return isApiRequestError(error) && (error.status === 403 || error.status === 404);
 }
 
-export const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL || "/api";
+export const apiBaseUrl = (
+  import.meta.env.VITE_API_BASE_URL || "/api"
+).replace(/\/+$/, "");
 export const adminBackupDownloadUrl = `${apiBaseUrl}/admin/backup.php`;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
