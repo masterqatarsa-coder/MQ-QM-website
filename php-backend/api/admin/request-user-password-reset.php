@@ -56,9 +56,13 @@ $challenge = create_secondary_factor_challenge('user_password_reset', (int)$admi
 ]);
 
 json_response([
-    'message' => (($challenge['method'] ?? 'email') === 'totp')
-        ? 'Authenticator verification required before resetting the user password.'
-        : 'Verification code sent to the admin email.',
+    'message' => match ((string)($challenge['method'] ?? 'email')) {
+        'email_or_authenticator' => 'Enter either the emailed code or your authenticator code before resetting the user password.',
+        'authenticator', 'totp' => 'Authenticator verification required before resetting the user password.',
+        default => 'Verification code sent to the admin email.',
+    },
     'emailMasked' => $challenge['emailMasked'] ?? null,
-    'verificationMethod' => (($challenge['method'] ?? 'email') === 'totp') ? 'authenticator' : 'email',
+    'verificationMethod' => ((string)($challenge['method'] ?? 'email') === 'totp')
+        ? 'authenticator'
+        : (string)($challenge['method'] ?? 'email'),
 ]);

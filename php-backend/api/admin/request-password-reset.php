@@ -52,7 +52,9 @@ if ($admin !== null && is_primary_admin($admin)) {
     json_response([
         'message' => 'If the account exists, a password reset code has been sent.',
         'emailMasked' => $challenge['emailMasked'] ?? null,
-        'verificationMethod' => (($challenge['method'] ?? 'email') === 'totp') ? 'authenticator' : 'email',
+        'verificationMethod' => ((string)($challenge['method'] ?? 'email') === 'totp')
+            ? 'authenticator'
+            : (string)($challenge['method'] ?? 'email'),
     ]);
 }
 

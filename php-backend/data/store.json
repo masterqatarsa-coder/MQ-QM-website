@@ -4002,14 +4002,98 @@
             "referrer": "localhost/",
             "ipHash": "a8ae5349d846d2ffd1d2",
             "createdAt": "2026-03-28 09:03:21"
+        },
+        {
+            "id": 113,
+            "eventType": "page_view",
+            "page": "/",
+            "label": null,
+            "metadata": {
+                "compact": false,
+                "browser": "Chrome",
+                "deviceType": "Desktop",
+                "referrer": "localhost/",
+                "visitorAlias": "Visitor 57E346"
+            },
+            "visitorId": "57e346fc95fe2c637a5183487f3f69e6",
+            "visitorAlias": "Visitor 57E346",
+            "sessionHash": "b2affac5805ee2ee44d8",
+            "browser": "Chrome",
+            "deviceType": "Desktop",
+            "referrer": "localhost/",
+            "ipHash": "a8ae5349d846d2ffd1d2",
+            "createdAt": "2026-03-28 10:09:01"
+        },
+        {
+            "id": 114,
+            "eventType": "page_view",
+            "page": "/",
+            "label": null,
+            "metadata": {
+                "compact": true,
+                "browser": "Chrome",
+                "deviceType": "Desktop",
+                "referrer": "localhost/",
+                "visitorAlias": "Visitor 57E346"
+            },
+            "visitorId": "57e346fc95fe2c637a5183487f3f69e6",
+            "visitorAlias": "Visitor 57E346",
+            "sessionHash": "b2affac5805ee2ee44d8",
+            "browser": "Chrome",
+            "deviceType": "Desktop",
+            "referrer": "localhost/",
+            "ipHash": "a8ae5349d846d2ffd1d2",
+            "createdAt": "2026-03-28 10:09:04"
+        },
+        {
+            "id": 115,
+            "eventType": "page_view",
+            "page": "/",
+            "label": null,
+            "metadata": {
+                "compact": false,
+                "browser": "Chrome",
+                "deviceType": "Desktop",
+                "referrer": "localhost/",
+                "visitorAlias": "Visitor 57E346"
+            },
+            "visitorId": "57e346fc95fe2c637a5183487f3f69e6",
+            "visitorAlias": "Visitor 57E346",
+            "sessionHash": "b2affac5805ee2ee44d8",
+            "browser": "Chrome",
+            "deviceType": "Desktop",
+            "referrer": "localhost/",
+            "ipHash": "a8ae5349d846d2ffd1d2",
+            "createdAt": "2026-03-29 08:49:36"
+        },
+        {
+            "id": 116,
+            "eventType": "page_view",
+            "page": "/contact",
+            "label": null,
+            "metadata": {
+                "compact": false,
+                "browser": "Chrome",
+                "deviceType": "Desktop",
+                "referrer": "localhost/contact",
+                "visitorAlias": "Visitor 410830"
+            },
+            "visitorId": "410830dfcc4f7392cf7f29d7bea04c14",
+            "visitorAlias": "Visitor 410830",
+            "sessionHash": "8713a02144571fbfce65",
+            "browser": "Chrome",
+            "deviceType": "Desktop",
+            "referrer": "localhost/contact",
+            "ipHash": "a8ae5349d846d2ffd1d2",
+            "createdAt": "2026-03-29 09:01:58"
         }
     ],
     "security": {
         "rateLimits": {
             "d4cdc123e5d96176ac8f": {
                 "bucket": "public_tracking",
-                "count": 1,
-                "windowStartedAt": 1774688600,
+                "count": 2,
+                "windowStartedAt": 1774774175,
                 "blockedUntil": 0
             },
             "8db0909277bdb735151d": {
@@ -5649,10 +5733,10 @@
                 "locationHint": null,
                 "requestFingerprint": "cfeb17b6dffcd5e8a211",
                 "loginAt": "2026-03-28 06:35:45",
-                "lastSeenAt": "2026-03-28 09:05:10",
-                "endedAt": null,
-                "status": "active",
-                "endedReason": null
+                "lastSeenAt": "2026-03-28 18:35:13",
+                "endedAt": "2026-03-28 18:35:13",
+                "status": "inactive",
+                "endedReason": "Session expired after inactivity."
             }
         ]
     },

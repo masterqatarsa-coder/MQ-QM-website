@@ -76,9 +76,11 @@ export default function AdminLoginPage() {
           verificationMethod: response.verificationMethod || null,
         });
         toast.success(
-          response.verificationMethod === "authenticator"
-            ? "Enter the code from Google Authenticator."
-            : "OTP sent to the admin email.",
+          response.verificationMethod === "email_or_authenticator"
+            ? "Use either the Google Authenticator code or the emailed OTP."
+            : response.verificationMethod === "authenticator"
+              ? "Enter the code from Google Authenticator."
+              : "OTP sent to the admin email.",
         );
         navigate(adminRoutes.verify, { replace: true });
         return;

@@ -49,9 +49,13 @@ $challenge = create_secondary_factor_challenge('account_update', (int)$admin['id
 ]);
 
 json_response([
-    'message' => (($challenge['method'] ?? 'email') === 'totp')
-        ? 'Authenticator verification required for account update.'
-        : 'Verification code sent for account update.',
+    'message' => match ((string)($challenge['method'] ?? 'email')) {
+        'email_or_authenticator' => 'Enter either the emailed code or your authenticator code to finish the account update.',
+        'authenticator', 'totp' => 'Authenticator verification required for account update.',
+        default => 'Verification code sent for account update.',
+    },
     'emailMasked' => $challenge['emailMasked'] ?? null,
-    'verificationMethod' => (($challenge['method'] ?? 'email') === 'totp') ? 'authenticator' : 'email',
+    'verificationMethod' => ((string)($challenge['method'] ?? 'email') === 'totp')
+        ? 'authenticator'
+        : (string)($challenge['method'] ?? 'email'),
 ]);

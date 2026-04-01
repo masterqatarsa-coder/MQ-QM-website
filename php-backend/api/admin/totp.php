@@ -23,6 +23,7 @@ if ($action === 'start') {
     $periodSeconds = normalize_authenticator_period_seconds(settings_payload(false)['authenticator_period_seconds'] ?? 30);
     $_SESSION['totp_setup'] = [
         'adminId' => (int)$admin['id'],
+        'mode' => 'enroll',
         'secret' => $secret,
         'periodSeconds' => $periodSeconds,
         'clientHash' => current_request_fingerprint(),
@@ -36,6 +37,64 @@ if ($action === 'start') {
         'accountLabel' => totp_account_label($admin),
         'issuer' => settings_payload(false)['site_name'] ?: 'Master Qatar Admin',
         'periodSeconds' => $periodSeconds,
+    ]);
+}
+
+if ($action === 'reset_start') {
+    $adminPassword = (string)($payload['adminPassword'] ?? '');
+    $secret = admin_totp_secret($admin);
+
+    if ($secret === '') {
+        json_response(['error' => 'Google Authenticator is not enabled on this account yet. Use the setup flow instead.'], 422);
+    }
+
+    enforce_rate_limit(
+        'totp_reset_start',
+        (string)$admin['id'] . '|' . current_request_fingerprint(),
+        5,
+        900,
+        'Too many authenticator reset attempts. Please wait before trying again.'
+    );
+
+    if ($adminPassword === '' || !password_verify($adminPassword, (string)($admin['passwordHash'] ?? ''))) {
+        write_audit_log(
+            'security.authenticator.reset_denied',
+            'Authenticator reset denied because the admin password confirmation failed.',
+            'warning',
+            [],
+            $admin,
+            true
+        );
+        json_response(['error' => 'Admin password confirmation failed.'], 401);
+    }
+
+    $newSecret = generate_totp_secret();
+    $periodSeconds = normalize_authenticator_period_seconds(settings_payload(false)['authenticator_period_seconds'] ?? 30);
+    $_SESSION['totp_setup'] = [
+        'adminId' => (int)$admin['id'],
+        'mode' => 'reset',
+        'secret' => $newSecret,
+        'periodSeconds' => $periodSeconds,
+        'clientHash' => current_request_fingerprint(),
+        'expiresAt' => time() + 900,
+    ];
+
+    write_audit_log(
+        'security.authenticator.reset_started',
+        'Authenticator reset initiated with admin password confirmation.',
+        'info',
+        [],
+        $admin
+    );
+
+    json_response([
+        'message' => 'Google Authenticator reset started. Scan the new QR code and confirm with the new authenticator code.',
+        'secret' => $newSecret,
+        'otpauthUri' => otpauth_uri_for_admin($admin, $newSecret, $periodSeconds),
+        'accountLabel' => totp_account_label($admin),
+        'issuer' => settings_payload(false)['site_name'] ?: 'Master Qatar Admin',
+        'periodSeconds' => $periodSeconds,
+        'mode' => 'reset',
     ]);
 }
 
@@ -53,6 +112,7 @@ if ($action === 'enable') {
     }
 
     $periodSeconds = normalize_authenticator_period_seconds($setup['periodSeconds'] ?? 30);
+    $setupMode = ($setup['mode'] ?? 'enroll') === 'reset' ? 'reset' : 'enroll';
 
     if (!verify_totp_secret_code((string)($setup['secret'] ?? ''), $code, 1, $periodSeconds)) {
         json_response(['error' => 'Invalid authenticator code.'], 422);
@@ -72,15 +132,19 @@ if ($action === 'enable') {
     unset($_SESSION['totp_setup']);
 
     write_audit_log(
-        'security.authenticator.enabled',
-        'Enabled Google Authenticator verification.',
-        'info',
+        $setupMode === 'reset' ? 'security.authenticator.reset_completed' : 'security.authenticator.enabled',
+        $setupMode === 'reset'
+            ? 'Replaced the Google Authenticator setup with a newly confirmed device.'
+            : 'Enabled Google Authenticator verification.',
+        $setupMode === 'reset' ? 'warning' : 'info',
         [],
         $store['admins'][$index]
     );
 
     json_response([
-        'message' => 'Google Authenticator enabled.',
+        'message' => $setupMode === 'reset'
+            ? 'Google Authenticator setup updated.'
+            : 'Google Authenticator enabled.',
         'admin' => public_admin($store['admins'][$index]),
     ]);
 }

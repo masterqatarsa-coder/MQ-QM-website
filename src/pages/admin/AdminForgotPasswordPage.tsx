@@ -14,6 +14,7 @@ import {
   type VerificationMethod,
   verifyPasswordResetOtp,
 } from "@/lib/cmsApi";
+import { allowsAuthenticatorOtp, allowsEmailOtp } from "@/lib/verification";
 
 type ResetStep = "request" | "verify" | "reset";
 
@@ -75,7 +76,7 @@ export default function AdminForgotPasswordPage() {
     try {
       const response = await requestPasswordReset(loginId.trim());
       setEmailMasked(response.emailMasked || null);
-      setVerificationMethod(response.verificationMethod === "authenticator" ? "authenticator" : "email");
+      setVerificationMethod(response.verificationMethod || "email");
       setOtp("");
       setStep("verify");
       toast.success(response.message);
@@ -165,6 +166,9 @@ export default function AdminForgotPasswordPage() {
     return <NotFound />;
   }
 
+  const allowsAuthenticator = allowsAuthenticatorOtp(verificationMethod);
+  const allowsEmail = allowsEmailOtp(verificationMethod);
+
   return (
     <AdminAuthShell
       eyebrow="Password Recovery"
@@ -210,7 +214,15 @@ export default function AdminForgotPasswordPage() {
       {step === "verify" && (
         <form onSubmit={handleVerifyOtp} className="space-y-6">
           <p className="text-sm text-muted-foreground">
-            {verificationMethod === "authenticator" ? (
+            {allowsAuthenticator && allowsEmail ? (
+              <>
+                Enter either the current 6-digit Google Authenticator code or the code sent to{" "}
+                <span className="font-semibold text-primary">
+                  {emailMasked || "your admin email"}
+                </span>
+                .
+              </>
+            ) : allowsAuthenticator ? (
               <>
                 Open Google Authenticator and enter the current 6-digit code for this admin
                 account.

@@ -5,14 +5,20 @@ import AdminAuthShell from "@/components/admin/AdminAuthShell";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import NotFound from "@/pages/NotFound";
 import { adminRoutes } from "@/lib/adminRoutes";
-import { fetchAdminSession, isHiddenAdminAccessError, verifyAdminOtp } from "@/lib/cmsApi";
+import {
+  fetchAdminSession,
+  isHiddenAdminAccessError,
+  type VerificationMethod,
+  verifyAdminOtp,
+} from "@/lib/cmsApi";
 import { writeCachedAdminSession } from "@/lib/adminSessionCache";
+import { allowsAuthenticatorOtp, allowsEmailOtp } from "@/lib/verification";
 
 export default function AdminVerifyOtpPage() {
   const navigate = useNavigate();
   const [otp, setOtp] = useState("");
   const [emailMasked, setEmailMasked] = useState<string | null>(null);
-  const [verificationMethod, setVerificationMethod] = useState<"email" | "authenticator">("email");
+  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("email");
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +44,7 @@ export default function AdminVerifyOtpPage() {
         }
 
         setEmailMasked(session.emailMasked || null);
-        setVerificationMethod(
-          session.verificationMethod === "authenticator" ? "authenticator" : "email",
-        );
+        setVerificationMethod(session.verificationMethod || "email");
       })
       .catch((sessionError) => {
         if (!cancelled && isHiddenAdminAccessError(sessionError)) {
@@ -108,14 +112,31 @@ export default function AdminVerifyOtpPage() {
     return <NotFound />;
   }
 
+  const allowsAuthenticator = allowsAuthenticatorOtp(verificationMethod);
+  const allowsEmail = allowsEmailOtp(verificationMethod);
+
   return (
     <AdminAuthShell
-      eyebrow={verificationMethod === "authenticator" ? "Authenticator Verification" : "Email Verification"}
-      title={verificationMethod === "authenticator" ? "Enter Authenticator Code" : "Enter OTP Code"}
+      eyebrow={
+        allowsAuthenticator && allowsEmail
+          ? "Authenticator Or Email Verification"
+          : allowsAuthenticator
+            ? "Authenticator Verification"
+            : "Email Verification"
+      }
+      title={
+        allowsAuthenticator && allowsEmail
+          ? "Enter Verification Code"
+          : allowsAuthenticator
+            ? "Enter Authenticator Code"
+            : "Enter OTP Code"
+      }
       description={
-        verificationMethod === "authenticator"
-          ? "Open Google Authenticator and enter the current 6-digit code for this admin account."
-          : `We sent a 6-digit verification code to ${emailMasked || "your admin email"}.`
+        allowsAuthenticator && allowsEmail
+          ? `Enter either the current 6-digit Google Authenticator code or the 6-digit code sent to ${emailMasked || "your admin email"}.`
+          : allowsAuthenticator
+            ? "Open Google Authenticator and enter the current 6-digit code for this admin account."
+            : `We sent a 6-digit verification code to ${emailMasked || "your admin email"}.`
       }
       sideLabel="Protected access"
       sideTitle="A smoother verification step with the same brand rhythm."

@@ -1,7 +1,9 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import QRCode from "qrcode";
 import { toast } from "sonner";
 import {
+  startAdminAuthenticatorReset,
   disableAdminAuthenticator,
   enableAdminAuthenticator,
   requestAccountUpdate,
@@ -9,6 +11,7 @@ import {
   startAdminAuthenticatorSetup,
   verifyAccountUpdateOtp,
   verifyPasswordChangeOtp,
+  type AuthenticatorSetupMode,
   type AdminUser,
   type HealthSummary,
   type SiteSettings,
@@ -157,6 +160,22 @@ function SettingsSection({
   );
 }
 
+function verificationPrompt(
+  method: VerificationMethod,
+  emailMasked: string | null,
+  actionText: string,
+) {
+  if (method === "email_or_authenticator") {
+    return `Enter either the current 6-digit Google Authenticator code or the code sent to ${emailMasked || "your admin email"} to ${actionText}.`;
+  }
+
+  if (method === "authenticator") {
+    return `Enter the current 6-digit Google Authenticator code to ${actionText}.`;
+  }
+
+  return `Enter the code sent to ${emailMasked || "your admin email"} to ${actionText}.`;
+}
+
 function OtpVerifier({
   title,
   description,
@@ -259,9 +278,47 @@ export default function AdminSettingsForm({
   const [passwordVerifying, setPasswordVerifying] = useState(false);
   const [totpSecret, setTotpSecret] = useState<string | null>(null);
   const [totpUri, setTotpUri] = useState<string | null>(null);
+  const [totpQrImage, setTotpQrImage] = useState<string | null>(null);
+  const [totpSetupMode, setTotpSetupMode] = useState<AuthenticatorSetupMode>("enroll");
   const [totpCode, setTotpCode] = useState("");
   const [totpLoading, setTotpLoading] = useState(false);
+  const [totpResetPassword, setTotpResetPassword] = useState("");
   const [totpDisabling, setTotpDisabling] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!totpUri) {
+      setTotpQrImage(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    QRCode.toDataURL(totpUri, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 240,
+      color: {
+        dark: "#12325e",
+        light: "#0000",
+      },
+    })
+      .then((image) => {
+        if (!cancelled) {
+          setTotpQrImage(image);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTotpQrImage(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [totpUri]);
 
   useEffect(() => {
     setAccountDraft({
@@ -283,9 +340,7 @@ export default function AdminSettingsForm({
       setAccountOtpPending(true);
       setAccountOtp("");
       setAccountOtpEmailMasked(response.emailMasked || null);
-      setAccountVerificationMethod(
-        response.verificationMethod === "authenticator" ? "authenticator" : "email",
-      );
+      setAccountVerificationMethod(response.verificationMethod || "email");
       toast.success(response.message);
     } catch (error) {
       toast.error(
@@ -333,9 +388,7 @@ export default function AdminSettingsForm({
       setPasswordOtpPending(true);
       setPasswordOtp("");
       setPasswordOtpEmailMasked(response.emailMasked || null);
-      setPasswordVerificationMethod(
-        response.verificationMethod === "authenticator" ? "authenticator" : "email",
-      );
+      setPasswordVerificationMethod(response.verificationMethod || "email");
       toast.success(response.message);
     } catch (error) {
       toast.error(
@@ -382,11 +435,41 @@ export default function AdminSettingsForm({
       const response = await startAdminAuthenticatorSetup();
       setTotpSecret(response.secret);
       setTotpUri(response.otpauthUri);
+      setTotpSetupMode(response.mode || "enroll");
       setTotpCode("");
+      setTotpResetPassword("");
       toast.success(response.message);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to start Google Authenticator setup.",
+      );
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
+  const handleResetAuthenticatorSetup = async () => {
+    if (!totpResetPassword.trim()) {
+      toast.error("Enter your current admin password to replace the authenticator setup.");
+      return;
+    }
+
+    if (!window.confirm("Replace the current Google Authenticator setup with a new one?")) {
+      return;
+    }
+
+    setTotpLoading(true);
+
+    try {
+      const response = await startAdminAuthenticatorReset(totpResetPassword);
+      setTotpSecret(response.secret);
+      setTotpUri(response.otpauthUri);
+      setTotpSetupMode(response.mode || "reset");
+      setTotpCode("");
+      toast.success(response.message);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to start authenticator replacement.",
       );
     } finally {
       setTotpLoading(false);
@@ -406,7 +489,10 @@ export default function AdminSettingsForm({
       onAdminChange(response.admin);
       setTotpSecret(null);
       setTotpUri(null);
+      setTotpQrImage(null);
+      setTotpSetupMode("enroll");
       setTotpCode("");
+      setTotpResetPassword("");
       toast.success(response.message);
     } catch (error) {
       toast.error(
@@ -430,7 +516,10 @@ export default function AdminSettingsForm({
       onAdminChange(response.admin);
       setTotpSecret(null);
       setTotpUri(null);
+      setTotpQrImage(null);
+      setTotpSetupMode("enroll");
       setTotpCode("");
+      setTotpResetPassword("");
       toast.success(response.message);
     } catch (error) {
       toast.error(
@@ -444,7 +533,7 @@ export default function AdminSettingsForm({
   return (
     <section className="space-y-6">
       <div className="admin-card p-5 text-sm text-muted-foreground">
-        This area handles both site-wide details and admin account security. Profile changes and password changes are only applied after secondary verification with Google Authenticator or email OTP.
+        This area handles both site-wide details and admin account security. Profile changes and password changes are only applied after secondary verification, and authenticator-enabled flows can now be completed with either the Google Authenticator code or the emailed OTP.
       </div>
 
       <SettingsSection
@@ -570,11 +659,11 @@ export default function AdminSettingsForm({
           <div className="mt-5">
             <OtpVerifier
               title="Confirm Admin Account Update"
-              description={
-                accountVerificationMethod === "authenticator"
-                  ? "Enter the current 6-digit code from Google Authenticator to apply the new login ID, email, and phone number."
-                  : `Enter the code sent to ${accountOtpEmailMasked || "your current admin email"} to apply the new login ID, email, and phone number.`
-              }
+              description={verificationPrompt(
+                accountVerificationMethod,
+                accountOtpEmailMasked,
+                "apply the new login ID, email, and phone number",
+              )}
               value={accountOtp}
               onChange={setAccountOtp}
               onConfirm={handleAccountUpdateVerify}
@@ -646,11 +735,11 @@ export default function AdminSettingsForm({
           <div className="mt-5">
             <OtpVerifier
               title="Confirm Password Change"
-              description={
-                passwordVerificationMethod === "authenticator"
-                  ? "Enter the current 6-digit Google Authenticator code to finalize the new password."
-                  : `Enter the code sent to ${passwordOtpEmailMasked || "your admin email"} to finalize the new password.`
-              }
+              description={verificationPrompt(
+                passwordVerificationMethod,
+                passwordOtpEmailMasked,
+                "finalize the new password",
+              )}
               value={passwordOtp}
               onChange={setPasswordOtp}
               onConfirm={handlePasswordChangeVerify}
@@ -862,7 +951,7 @@ export default function AdminSettingsForm({
                 Email OTP Verification
               </div>
               <div className="mt-1 text-sm text-muted-foreground">
-                When enabled, login falls back to email OTP for accounts that do not use Google Authenticator.
+                When enabled, login still works with email OTP for non-authenticator users, and primary-admin recovery flows can continue using email alongside Google Authenticator.
               </div>
             </div>
 
@@ -910,8 +999,8 @@ export default function AdminSettingsForm({
             </select>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               This applies to future Google Authenticator enrollments. If the primary admin is
-              already enrolled, disable and re-enable the authenticator to move to a new code
-              period safely.
+              already enrolled, start a new authenticator setup below and confirm it to move to a
+              new code period safely.
             </p>
           </div>
 
@@ -942,7 +1031,7 @@ export default function AdminSettingsForm({
                 Google Authenticator
               </div>
               <div className="mt-1 text-sm text-muted-foreground">
-                Protect the primary admin account with a TOTP app. When enabled, login verification uses your authenticator code instead of email OTP.
+                Protect the primary admin account with a TOTP app. Once enabled, login and other verification steps can be completed with either the Google Authenticator code or the emailed OTP.
               </div>
               <div className="mt-3 text-xs uppercase tracking-[0.16em] text-slate-500">
                 Status: {admin?.authenticatorEnabled ? "Enabled" : "Not enabled"}
@@ -961,52 +1050,155 @@ export default function AdminSettingsForm({
             ) : null}
           </div>
 
-          {totpSecret && !admin?.authenticatorEnabled && (
+          {!admin?.authenticatorEnabled && (
+            <div className="mt-5 rounded-[1.4rem] border border-slate-200 bg-white p-4">
+              <div className="text-sm font-semibold text-primary">Start setup</div>
+              <div className="mt-2 text-sm leading-6 text-muted-foreground">
+                Generate a QR code and scan it with Google Authenticator. Manual setup is also available with the key shown below.
+              </div>
+            </div>
+          )}
+
+          {admin?.authenticatorEnabled && !totpSecret && (
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-[1.4rem] border border-sky-200 bg-sky-50 p-4">
+                <div className="text-sm font-semibold text-primary">Change authenticator setup</div>
+                <div className="mt-2 text-sm leading-6 text-slate-600">
+                  If the authenticator device is lost or replaced, confirm with the current admin password and we&apos;ll prepare a brand-new QR code for the replacement device.
+                </div>
+                <div className="mt-4">
+                  <Field
+                    label="Confirm With Admin Password"
+                    value={totpResetPassword}
+                    onChange={setTotpResetPassword}
+                    type="password"
+                    autoComplete="current-password"
+                    revealable
+                  />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleResetAuthenticatorSetup()}
+                    disabled={totpLoading}
+                    className="admin-btn-secondary disabled:opacity-70"
+                  >
+                    {totpLoading ? "Preparing..." : "Change Authenticator Setup"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-[1.4rem] border border-amber-200 bg-amber-50 p-4">
+                <OtpVerifier
+                  title="Disable Google Authenticator"
+                  description="Enter a current authenticator code to disable app-based verification for the primary admin account."
+                  value={totpCode}
+                  onChange={setTotpCode}
+                  onConfirm={() => void handleDisableAuthenticator()}
+                  onCancel={() => setTotpCode("")}
+                  confirming={totpDisabling}
+                  confirmLabel="Disable Authenticator"
+                />
+              </div>
+            </div>
+          )}
+
+          {totpSecret && (
             <div className="mt-5 rounded-[1.4rem] border border-sky-200 bg-sky-50 p-4">
-              <div className="text-sm font-semibold text-primary">Setup key</div>
-              <div className="mt-2 break-all rounded-xl border border-sky-200 bg-white px-4 py-3 font-mono text-sm text-slate-700">
-                {totpSecret}
+              <div className="text-sm font-semibold text-primary">
+                {totpSetupMode === "reset" ? "Replace authenticator app" : "Set up authenticator app"}
               </div>
               <div className="mt-3 text-sm leading-6 text-muted-foreground">
-                Add a new account in Google Authenticator with this setup key. If your app supports manual entry, use the current admin email/login as the account name.
+                {totpSetupMode === "reset"
+                  ? "Scan this QR code with the replacement authenticator app, then enter the new 6-digit code below to confirm the change."
+                  : "Scan this QR code with Google Authenticator, then enter the current 6-digit code below to finish enabling it."}
               </div>
-              {totpUri && (
-                <div className="mt-3 text-xs break-all text-slate-500">
-                  {totpUri}
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-[280px_1fr]">
+                <div className="flex items-center justify-center rounded-[1.2rem] border border-sky-200 bg-white p-4">
+                  {totpQrImage ? (
+                    <img
+                      src={totpQrImage}
+                      alt="Google Authenticator setup QR code"
+                      className="h-[220px] w-[220px] rounded-xl"
+                    />
+                  ) : (
+                    <div className="px-6 py-10 text-center text-sm leading-6 text-muted-foreground">
+                      QR code preview unavailable in this browser. Use the manual setup key instead.
+                    </div>
+                  )}
                 </div>
-              )}
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Manual setup key
+                    </div>
+                    <div className="mt-2 break-all rounded-xl border border-sky-200 bg-white px-4 py-3 font-mono text-sm text-slate-700">
+                      {totpSecret}
+                    </div>
+                  </div>
+
+                  {totpUri && (
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        otpauth URI
+                      </div>
+                      <div className="mt-2 break-all rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+                        {totpUri}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div className="mt-4">
                 <OtpVerifier
-                  title="Confirm Google Authenticator"
-                  description="Enter the current 6-digit code from Google Authenticator to finish enabling it."
+                  title={totpSetupMode === "reset" ? "Confirm New Authenticator Setup" : "Confirm Google Authenticator"}
+                  description={
+                    totpSetupMode === "reset"
+                      ? "Enter the current 6-digit code from the newly scanned Google Authenticator entry to replace the old setup."
+                      : "Enter the current 6-digit code from Google Authenticator to finish enabling it."
+                  }
                   value={totpCode}
                   onChange={setTotpCode}
                   onConfirm={() => void handleEnableAuthenticator()}
                   onCancel={() => {
                     setTotpSecret(null);
                     setTotpUri(null);
+                    setTotpQrImage(null);
+                    setTotpSetupMode("enroll");
                     setTotpCode("");
+                    setTotpResetPassword("");
                   }}
                   confirming={totpLoading}
-                  confirmLabel="Enable Authenticator"
+                  confirmLabel={totpSetupMode === "reset" ? "Confirm New Authenticator" : "Enable Authenticator"}
                 />
               </div>
             </div>
           )}
 
-          {admin?.authenticatorEnabled && (
-            <div className="mt-5 rounded-[1.4rem] border border-amber-200 bg-amber-50 p-4">
-              <OtpVerifier
-                title="Disable Google Authenticator"
-                description="Enter a current authenticator code to disable app-based verification for the primary admin account."
-                value={totpCode}
-                onChange={setTotpCode}
-                onConfirm={() => void handleDisableAuthenticator()}
-                onCancel={() => setTotpCode("")}
-                confirming={totpDisabling}
-                confirmLabel="Disable Authenticator"
-              />
+          {admin?.authenticatorEnabled && totpSecret && (
+            <div className="mt-4 rounded-[1.4rem] border border-amber-200 bg-amber-50 p-4">
+              <div className="text-sm leading-6 text-slate-600">
+                The current authenticator remains active until the new setup is confirmed. If you want to abandon this replacement, cancel below.
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTotpSecret(null);
+                    setTotpUri(null);
+                    setTotpQrImage(null);
+                    setTotpSetupMode("enroll");
+                    setTotpCode("");
+                    setTotpResetPassword("");
+                  }}
+                  className="admin-btn-secondary"
+                >
+                  Cancel Replacement
+                </button>
+              </div>
             </div>
           )}
         </div>

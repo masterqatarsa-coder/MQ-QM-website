@@ -53,12 +53,14 @@ clear_rate_limit('admin_login_user', strtolower($loginId));
 
 $verificationMethod = secondary_factor_method($admin, 'login');
 
-if ($verificationMethod === 'authenticator' || $verificationMethod === 'email') {
+if ($verificationMethod !== 'none') {
     $challenge = create_secondary_factor_challenge('login', (int)$admin['id']);
     json_response([
-        'message' => $verificationMethod === 'authenticator'
-            ? 'Authenticator verification required.'
-            : 'Verification code sent.',
+        'message' => match ($verificationMethod) {
+            'email_or_authenticator' => 'Enter either the emailed code or your authenticator code.',
+            'authenticator' => 'Authenticator verification required.',
+            default => 'Verification code sent.',
+        },
         'pendingOtp' => true,
         'authenticated' => false,
         'emailMasked' => $challenge['emailMasked'] ?? null,

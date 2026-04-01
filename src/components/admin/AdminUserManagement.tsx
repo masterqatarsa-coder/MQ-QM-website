@@ -8,6 +8,7 @@ import {
   type VerificationMethod,
 } from "@/lib/cmsApi";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { allowsAuthenticatorOtp, allowsEmailOtp } from "@/lib/verification";
 
 function Field({
   label,
@@ -220,6 +221,8 @@ export default function AdminUserManagement({
   const [draft, setDraft] = useState<UserDraft>(emptyDraft());
   const [editingId, setEditingId] = useState<number | null>(null);
   const [resetDraft, setResetDraft] = useState<ResetDraft>(emptyResetDraft());
+  const resetAllowsAuthenticator = allowsAuthenticatorOtp(resetDraft.verificationMethod);
+  const resetAllowsEmail = allowsEmailOtp(resetDraft.verificationMethod);
 
   useEffect(() => {
     if (editingId === null) {
@@ -359,8 +362,7 @@ export default function AdminUserManagement({
         otpPending: true,
         requesting: false,
         emailMasked: response.emailMasked || null,
-        verificationMethod:
-          response.verificationMethod === "authenticator" ? "authenticator" : "email",
+        verificationMethod: response.verificationMethod || "email",
         otp: "",
       }));
       toast.success(response.message);
@@ -664,9 +666,11 @@ export default function AdminUserManagement({
                     <div className="mt-5 rounded-[1.4rem] border border-emerald-200 bg-emerald-50 p-4">
                       <div className="text-sm font-semibold text-primary">Enter verification code</div>
                       <div className="mt-1 text-sm text-slate-600">
-                        {resetDraft.verificationMethod === "authenticator"
-                          ? "Open Google Authenticator and enter the current 6-digit code for the primary admin account."
-                          : `Code sent to ${resetDraft.emailMasked || "the primary admin email"}.`}
+                        {resetAllowsAuthenticator && resetAllowsEmail
+                          ? `Enter either the current 6-digit Google Authenticator code or the code sent to ${resetDraft.emailMasked || "the primary admin email"}.`
+                          : resetAllowsAuthenticator
+                            ? "Open Google Authenticator and enter the current 6-digit code for the primary admin account."
+                            : `Code sent to ${resetDraft.emailMasked || "the primary admin email"}.`}
                       </div>
                       <div className="mt-4 flex justify-center md:justify-start">
                         <InputOTP

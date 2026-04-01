@@ -9,7 +9,8 @@ export type ContentType =
   | "testimonials";
 export type SubmissionType = "contact" | "career";
 export type AuditHistoryScope = "admin_logins" | "panel" | "suspicious";
-export type VerificationMethod = "email" | "authenticator";
+export type VerificationMethod = "email" | "authenticator" | "email_or_authenticator";
+export type AuthenticatorSetupMode = "enroll" | "reset";
 
 export type AdminUser = {
   id: number;
@@ -658,9 +659,25 @@ export function startAdminAuthenticatorSetup() {
     accountLabel: string;
     issuer: string;
     periodSeconds: number;
+    mode?: AuthenticatorSetupMode;
   }>("admin/totp.php", {
     method: "POST",
     body: { action: "start" },
+  });
+}
+
+export function startAdminAuthenticatorReset(adminPassword: string) {
+  return apiRequest<{
+    message: string;
+    secret: string;
+    otpauthUri: string;
+    accountLabel: string;
+    issuer: string;
+    periodSeconds: number;
+    mode?: AuthenticatorSetupMode;
+  }>("admin/totp.php", {
+    method: "POST",
+    body: { action: "reset_start", adminPassword },
   });
 }
 

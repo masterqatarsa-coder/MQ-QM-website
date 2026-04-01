@@ -41,9 +41,13 @@ $challenge = create_secondary_factor_challenge('password_change', (int)$admin['i
 ]);
 
 json_response([
-    'message' => (($challenge['method'] ?? 'email') === 'totp')
-        ? 'Authenticator verification required for password change.'
-        : 'Verification code sent for password change.',
+    'message' => match ((string)($challenge['method'] ?? 'email')) {
+        'email_or_authenticator' => 'Enter either the emailed code or your authenticator code to finish the password change.',
+        'authenticator', 'totp' => 'Authenticator verification required for password change.',
+        default => 'Verification code sent for password change.',
+    },
     'emailMasked' => $challenge['emailMasked'] ?? null,
-    'verificationMethod' => (($challenge['method'] ?? 'email') === 'totp') ? 'authenticator' : 'email',
+    'verificationMethod' => ((string)($challenge['method'] ?? 'email') === 'totp')
+        ? 'authenticator'
+        : (string)($challenge['method'] ?? 'email'),
 ]);

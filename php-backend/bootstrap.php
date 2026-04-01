@@ -1044,7 +1044,7 @@ function create_totp_challenge(string $purpose, int $adminId, array $payload = [
 
     $challenge = [
         'purpose' => $purpose,
-        'method' => 'totp',
+        'method' => 'authenticator',
         'adminId' => $adminId,
         'expiresAt' => time() + 600,
         'emailMasked' => null,
@@ -1063,24 +1063,53 @@ function create_totp_login_challenge(int $adminId): array
     return create_totp_challenge('login', $adminId);
 }
 
+function secondary_factor_email_available(array $admin): bool
+{
+    return is_valid_email((string)($admin['email'] ?? ''));
+}
+
 function secondary_factor_method(array $admin, string $purpose = 'login'): string
 {
     $authenticatorEnabled = normalize_bool($admin['authenticatorEnabled'] ?? false) === 1
         && admin_totp_secret($admin) !== '';
+    $emailAvailable = secondary_factor_email_available($admin);
+
+    if ($purpose === 'login') {
+        $settings = settings_payload(false);
+        $emailOtpEnabled = $authenticatorEnabled
+            ? $emailAvailable
+            : (
+                $emailAvailable
+                && (
+                    (bool)($settings['two_factor_auth_enabled'] ?? false)
+                    || normalize_bool($admin['twoFactorEnabled'] ?? true) === 1
+                )
+            );
+
+        if ($authenticatorEnabled && $emailOtpEnabled) {
+            return 'email_or_authenticator';
+        }
+
+        if ($authenticatorEnabled) {
+            return 'authenticator';
+        }
+
+        if ($emailOtpEnabled) {
+            return 'email';
+        }
+
+        return 'none';
+    }
+
+    if ($authenticatorEnabled && $emailAvailable) {
+        return 'email_or_authenticator';
+    }
 
     if ($authenticatorEnabled) {
         return 'authenticator';
     }
 
-    if ($purpose === 'login') {
-        $settings = settings_payload(false);
-        $twoFactorEnabled = (bool)($settings['two_factor_auth_enabled'] ?? false)
-            || normalize_bool($admin['twoFactorEnabled'] ?? true) === 1;
-
-        return $twoFactorEnabled ? 'email' : 'none';
-    }
-
-    return 'email';
+    return $emailAvailable ? 'email' : 'none';
 }
 
 function create_secondary_factor_challenge(string $purpose, int $adminId, array $payload = []): array
@@ -1090,9 +1119,23 @@ function create_secondary_factor_challenge(string $purpose, int $adminId, array 
         json_response(['error' => 'Admin account not found.'], 404);
     }
 
-    return secondary_factor_method($admin, $purpose) === 'authenticator'
-        ? create_totp_challenge($purpose, $adminId, $payload)
-        : create_otp_challenge($purpose, $adminId, $payload);
+    $method = secondary_factor_method($admin, $purpose);
+
+    return match ($method) {
+        'authenticator' => create_totp_challenge($purpose, $adminId, $payload),
+        'email_or_authenticator' => create_otp_challenge(
+            $purpose,
+            $adminId,
+            $payload,
+            'email_or_authenticator',
+            true
+        ),
+        'email' => create_otp_challenge($purpose, $adminId, $payload),
+        default => json_response(
+            ['error' => 'No verification method is available for this admin account. Update the admin email or authenticator settings first.'],
+            422
+        ),
+    };
 }
 
 function clear_login_lockouts(?string $loginId, ?string $requestFingerprint, ?array $actor = null): array
@@ -2084,7 +2127,13 @@ function otp_purpose_title(string $purpose): string
     };
 }
 
-function create_otp_challenge(string $purpose, int $adminId, array $payload = []): array
+function create_otp_challenge(
+    string $purpose,
+    int $adminId,
+    array $payload = [],
+    string $method = 'email',
+    bool $totpAllowed = false
+): array
 {
     $admin = find_admin_by_id(read_store(), $adminId);
     if ($admin === null) {
@@ -2097,12 +2146,13 @@ function create_otp_challenge(string $purpose, int $adminId, array $payload = []
 
     $challenge = [
         'purpose' => $purpose,
-        'method' => 'email',
+        'method' => $method,
         'adminId' => $adminId,
         'codeHash' => password_hash($otpCode, PASSWORD_DEFAULT),
         'expiresAt' => time() + 600,
         'emailMasked' => mask_email((string)$admin['email']),
         'payload' => $payload,
+        'totpAllowed' => $totpAllowed,
         'attemptsRemaining' => 5,
         'clientHash' => current_request_fingerprint(),
         'createdAt' => now_utc(),
@@ -2184,15 +2234,25 @@ function verify_otp_challenge(string $purpose, string $otp): array
     }
 
     $method = (string)($challenge['method'] ?? 'email');
+    $allowsEmail = in_array($method, ['email', 'email_or_authenticator'], true);
+    $allowsAuthenticator = in_array($method, ['authenticator', 'totp', 'email_or_authenticator'], true)
+        || normalize_bool($challenge['totpAllowed'] ?? false) === 1;
     $isValid = false;
+    $verifiedWith = $allowsAuthenticator && !$allowsEmail ? 'authenticator' : 'email';
 
-    if ($method === 'totp') {
+    if ($allowsEmail && password_verify($otp, (string)($challenge['codeHash'] ?? ''))) {
+        $isValid = true;
+        $verifiedWith = 'email';
+    }
+
+    if (!$isValid && $allowsAuthenticator) {
         $admin = find_admin_by_id(read_store(), (int)($challenge['adminId'] ?? 0));
         $secret = $admin !== null ? admin_totp_secret($admin) : '';
         $periodSeconds = $admin !== null ? admin_totp_period($admin) : 30;
         $isValid = $secret !== '' && verify_totp_secret_code($secret, $otp, 1, $periodSeconds);
-    } else {
-        $isValid = password_verify($otp, (string)($challenge['codeHash'] ?? ''));
+        if ($isValid) {
+            $verifiedWith = 'authenticator';
+        }
     }
 
     if (!$isValid) {
@@ -2218,6 +2278,7 @@ function verify_otp_challenge(string $purpose, string $otp): array
 
     clear_rate_limit('otp:' . $purpose, $rateLimitIdentifier);
     unset($_SESSION['otp_challenge']);
+    $challenge['verifiedWith'] = $verifiedWith;
     return $challenge;
 }
 

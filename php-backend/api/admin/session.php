@@ -10,22 +10,24 @@ $admin = current_admin();
 $challenge = current_otp_challenge('login');
 
 if ($admin !== null) {
+    $verificationMethod = secondary_factor_method($admin, 'login');
     json_response([
         'authenticated' => true,
         'pendingOtp' => false,
         'admin' => public_admin($admin),
         'twoFactorEnabled' => normalize_bool($admin['twoFactorEnabled'] ?? true) === 1,
-        'verificationMethod' => normalize_bool($admin['authenticatorEnabled'] ?? false) === 1 ? 'authenticator' : 'email',
+        'verificationMethod' => $verificationMethod === 'none' ? null : $verificationMethod,
     ]);
 }
 
 if ($challenge !== null) {
+    $challengeMethod = (string)($challenge['method'] ?? 'email');
     json_response([
         'authenticated' => false,
         'pendingOtp' => true,
         'emailMasked' => $challenge['emailMasked'] ?? null,
         'twoFactorEnabled' => true,
-        'verificationMethod' => (string)($challenge['method'] ?? 'email'),
+        'verificationMethod' => $challengeMethod === 'totp' ? 'authenticator' : $challengeMethod,
     ]);
 }
 
